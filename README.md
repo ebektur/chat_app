@@ -32,7 +32,10 @@ curl -X POST "[http://your-domain.com/api/login](http://your-domain.com/api/logi
 
 #### Örnek Başarılı Yanıt (200 OK)
 ```bash
-{"token":"17|jWQmvh2dES8oC3yfXbWd1JYVR9DFSG4etGyP7jv0808fe1ea","user":{"id":1,"name":"John  Doe","email":"john.doe@fly.com.tr","role":"doktor","expo_push_token":"ExponentPushToken[lzn_dRF1ZtY7C6ambnRvvi]","created_at":"2025-09-05T18:34:53.000000Z","updated_at":"2025-09-12T13:24:00.000000Z"}}
+{
+"token":"17|jWQmvh2dES8oC3yfXbWd1JYVR9DFSG4etGyP7jv0808fe1ea",
+"user":{"id":1,"name":"John  Doe","email":"john.doe@fly.com.tr","role":"doktor","expo_push_token":"ExponentPushToken[lzn_dRF1ZtY7C6ambnRvvi]","created_at":"2025-09-05T18:34:53.000000Z","updated_at":"2025-09-12T13:24:00.000000Z"}
+}
 ```
 
 ## Korumalı Rotalar (Protected Routes)
