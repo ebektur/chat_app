@@ -153,21 +153,48 @@ curl -X POST "http://your-domain.com/api/chat-messages" \
 ```
 #### Örnek Başarılı Yanıt (200 OK)
 ```bash
-[
-  {
-    "id": 101,
-    "hst_id": 8400,
-    "yazar_id": 12,
-    "yazar_tamad": "Dr. John Doe",
-    "yazar_statu": "doktor",
-    "cht_datetime": "2025-10-13T10:00:00Z",
-    "cht_text": "Hello, how are you feeling today?",
-    "cht_audio": null,
-    "cht_audio_path": null,
-    "created_at": "2025-10-13T10:00:05Z",
-    "updated_at": "2025-10-13T10:00:05Z"
-  }
-]
+"status": "success",
+    "data": [
+        {
+            "id": 22,
+            "hst_id": 8400,
+            "yazar_id": 2,
+            "yazar_tamad": "Staff Member",
+            "yazar_statu": "mf",
+            "cht_datetime": "2025-09-12T12:51:40.000000Z",
+            "cht_text": "Merhaba hocam, hastanın dosyasını güncelledim.",
+            "cht_audio": null,
+            "cht_audio_path": null,
+            "created_at": "2025-09-12T13:21:41.000000Z",
+            "updated_at": "2025-09-12T13:21:41.000000Z"
+        },
+        {
+            "id": 23,
+            "hst_id": 8400,
+            "yazar_id": 1,
+            "yazar_tamad": "Dr. Onur Egemen",
+            "yazar_statu": "dr",
+            "cht_datetime": "2025-09-12T12:53:40.000000Z",
+            "cht_text": "Teşekkürler. Sabahki sonuçlar sisteme düştü mü?",
+            "cht_audio": null,
+            "cht_audio_path": null,
+            "created_at": "2025-09-12T13:21:41.000000Z",
+            "updated_at": "2025-09-12T13:21:41.000000Z"
+        },
+        {
+            "id": 34,
+            "hst_id": 8400,
+            "yazar_id": 5,
+            "yazar_tamad": "Frau Kamila Birke",
+            "yazar_statu": "patient",
+            "cht_datetime": "2025-10-13T14:50:15.000000Z",
+            "cht_text": "Thank you, doctor.",
+            "cht_audio": null,
+            "cht_audio_path": null,
+            "created_at": "2025-10-13T15:50:15.000000Z",
+            "updated_at": "2025-10
+      }
+  ]
 ```
 
 ### Anlık Bildirim Token'ını Kaydet (`/save-push-token`)
