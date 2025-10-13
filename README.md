@@ -113,10 +113,9 @@ curl -X GET "http://your-domain.com/api/cevap-bekleyenler" \
 [
   {
     "hst_id": 8401,
-    "patient_name": "Peter Jones",
-    "last_message_text": "Should I continue with the medication?",
-    "last_message_time": "2025-10-13T09:45:00Z",
-    "unread_count": 3
+    "hst_durum": 1,
+    "hst_full_name": "Test Patient Jane",
+    "kayit_date": "2025-10-13T12:53:02.000000Z"
   }
 ]
 ```
