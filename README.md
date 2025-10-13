@@ -25,7 +25,7 @@ Bir kullanıcıyı doğrular ve korumalı rotalara erişim için bir Sanctum tok
 curl -X POST "[http://your-domain.com/api/login](http://your-domain.com/api/login)" \
   -H "Content-Type: application/json" \
   -d '{
-        "email": "user@example.com",
+        "email": "john.doe@fly.com.tr",
         "password": "password123"
       }'
 ```
@@ -33,8 +33,16 @@ curl -X POST "[http://your-domain.com/api/login](http://your-domain.com/api/logi
 #### Örnek Başarılı Yanıt (200 OK)
 ```bash
 {
-"token":"17|jWQmvh2dES8oC3yfXbWd1JYVR9DFSG4etGyP7jv0808fe1ea",
-"user":{"id":1,"name":"John  Doe","email":"john.doe@fly.com.tr","role":"doktor","expo_push_token":"ExponentPushToken[lzn_dRF1ZtY7C6ambnRvvi]","created_at":"2025-09-05T18:34:53.000000Z","updated_at":"2025-09-12T13:24:00.000000Z"}
+  "token": "17|TOKEN",
+  "user": {
+    "id": 1,
+    "name": "John Doe",
+    "email": "john.doe@fly.com.tr",
+    "role": "doktor",
+    "expo_push_token": "ExponentPushToken[XXXXXXXXX]",
+    "created_at": "2025-09-05T18:34:53.000000Z",
+    "updated_at": "2025-09-12T13:24:00.000000Z"
+  }
 }
 ```
 
@@ -59,11 +67,13 @@ curl -X GET "http://your-domain.com/api/me" \
 
 ```bash
 {
-  "id": 12,
-  "name": "Dr. John Doe",
-  "email": "user@example.com",
-  "created_at": "2025-01-15T09:30:00Z",
-  "updated_at": "2025-09-20T14:00:00Z"
+  "id": 1,
+  "name": "John Doe",
+  "email": "john.doe@fly.com.tr",
+  "role": "doktor",
+  "expo_push_token": "ExponentPushToken[XXXXXXXXXXXX]",
+  "created_at": "2025-09-05T18:34:53.000000Z",
+  "updated_at": "2025-09-12T13:24:00.000000Z"
 }
 ```
 
