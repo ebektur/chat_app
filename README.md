@@ -110,14 +110,23 @@ curl -X GET "http://your-domain.com/api/cevap-bekleyenler" \
 
 #### Örnek Başarılı Yanıt (200 OK)
 ```bash
-[
-  {
-    "hst_id": 8401,
-    "hst_durum": 1,
-    "hst_full_name": "Test Patient Jane",
-    "kayit_date": "2025-10-13T12:53:02.000000Z"
-  }
-]
+    "status": "success",
+    "data": [
+        {
+            "hst_id": 8401,
+            "patient_name": "Test Patient Jane",
+            "last_message_text": "This is my first message...",
+            "last_message_time": "2025-10-13 15:50:13",
+            "is_unread": 1
+        },
+        {
+            "hst_id": 8400,
+            "patient_name": "Frau Kamila Birke",
+            "last_message_text": "Thank you, doctor.",
+            "last_message_time": "2025-10-13 15:50:15",
+            "is_unread": 0
+        }
+    ]
 ```
 
 ### 4) Sohbet Mesajlarını Çek (`/chat-messages`)
