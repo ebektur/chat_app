@@ -90,7 +90,8 @@ curl -X GET "http://your-domain.com/api/me" \
   "role": "doktor",
   "expo_push_token": "ExponentPushToken[XXXXXXXXXXXX]",
   "created_at": "2025-09-05T18:34:53.000000Z",
-  "updated_at": "2025-09-12T13:24:00.000000Z"
+  "updated_at": "2025-09-12T13:24:00.000000Z",
+  "hst_id" : null
 }
 ```
 
