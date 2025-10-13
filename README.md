@@ -42,6 +42,23 @@ curl -X POST "[http://your-domain.com/api/login](http://your-domain.com/api/logi
     "expo_push_token": "ExponentPushToken[XXXXXXXXX]",
     "created_at": "2025-09-05T18:34:53.000000Z",
     "updated_at": "2025-09-12T13:24:00.000000Z"
+    "hst_id: null"
+  }
+}
+```
+
+```bash
+{
+  "token": "18|TOKEN",
+  "user": {
+    "id": 2,
+    "name": "Jane Patient",
+    "email": "jane.patient@fly.com.tr",
+    "role": "patient",
+    "expo_push_token": "ExponentPushToken[XXXXXXXXX]",
+    "created_at": "2025-09-05T18:34:53.000000Z",
+    "updated_at": "2025-09-12T13:24:00.000000Z"
+    "hst_id: 8606"
   }
 }
 ```
