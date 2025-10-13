@@ -73,7 +73,7 @@ curl -X GET "http://your-domain.com/api/me" \
 }
 ```
 
-#### Cevap Bekleyen Konuşmaları Al (/cevap-bekleyenler)
+### Cevap Bekleyen Konuşmaları Al (/cevap-bekleyenler)
 Yanıt bekleyen konuşmaların bir listesini getirir.
 
 Endpoint: /api/cevap-bekleyenler
