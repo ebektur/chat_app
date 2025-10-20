@@ -1,10 +1,25 @@
-import { getChatMessages } from "@/lib/api";
+import { sendChatMessage } from "@/lib/api";
 import { useAuth } from "@/lib/ctx";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Button,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControl,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
-// Types for a single chat message from your API
+/**
+ * API'den gelen tek bir sohbet mesajının yapısını tanımlar
+ */
 type ChatMessage = {
   yazar_tamad: string;
   yazar_statu: "dr" | "mf";
@@ -12,6 +27,9 @@ type ChatMessage = {
   cht_text: string;
 };
 
+/**
+ * API yanıtının genel yapısı
+ */
 type ApiResponse = {
   status: string;
   data: ChatMessage[];
@@ -19,50 +37,68 @@ type ApiResponse = {
 
 export default function ChatScreen() {
   const { token } = useAuth();
-  const params = useLocalSearchParams<{ response?: string; name?: string; chatId?: string }>();
+  const params = useLocalSearchParams<{ name?: string; chatId?: string }>();
 
-  const name = params.name ?? "Chat Conversation";
+  const name = params.name ?? "Sohbet";
   const chatId = params.chatId ? Number(params.chatId) : undefined;
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState(""); // Kullanıcının yazdığı mesaj
+  const [sending, setSending] = useState(false); // Mesaj gönderme durumu
 
-  // Fallback: support legacy `response` param (mocked payloads)
-  const messagesFromResponse = useMemo<ChatMessage[]>(() => {
-    if (!params.response) return [];
-    try {
-      const j: ApiResponse = JSON.parse(params.response);
-      if (j && Array.isArray(j.data)) {
-        return j.data.slice().reverse();
-      }
-    } catch (e) {
-      console.warn("Failed to parse response JSON:", e);
-    }
-    return [];
-  }, [params.response]);
-
-  // Fetch from API when we have a chatId and token
+  /**
+   * Sohbet geçmişini API'den çeker (POST isteğiyle).
+   */
   const fetchMessages = useCallback(async () => {
-    if (!token || !chatId) return;
+    if (!token || !chatId) {
+      console.warn("Token veya chatId eksik, POST işlemi atlanıyor.");
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
-      const res = (await getChatMessages(token, chatId)) as ApiResponse;
-      const data = Array.isArray(res?.data) ? res.data : [];
-      setMessages(data.slice().reverse());
+      const res = await sendChatMessage(token, chatId, "");
+
+      if (!res) {
+        console.warn("API null veya tanımsız bir yanıt döndürdü.");
+        setError("API'den veri alınamadı.");
+        setMessages([]);
+        return;
+      }
+
+      console.log("API response:", res);
+
+      // Format kontrolü
+      if (typeof res === 'object' && res !== null && 'status' in res && 'data' in res && Array.isArray(res.data)) {
+        const apiResponse = res as ApiResponse;
+        const data = apiResponse.data;
+        
+        setMessages(data.slice().reverse());
+      } else {
+        console.warn("Geçersiz API yanıtı:", res);
+        setError("API'den beklenen formatta veri alınamadı.");
+        setMessages([]);
+      }
     } catch (e: any) {
+      console.error("API hatası:", e);
       setError(e?.message ?? "Mesajlar alınamadı.");
+      setMessages([]);
     } finally {
       setLoading(false);
     }
   }, [token, chatId]);
 
+  // Ekran ilk açıldığında ve token/chatId değiştiğinde mesajları çeker
   useEffect(() => {
     if (chatId && token) fetchMessages();
   }, [chatId, token, fetchMessages]);
 
+  /**
+   * Kullanıcı ekranı aşağı çektiğinde mesaj listesini yeniler
+   */
   const onRefresh = useCallback(async () => {
     if (!chatId || !token) return;
     setRefreshing(true);
@@ -73,8 +109,43 @@ export default function ChatScreen() {
     }
   }, [chatId, token, fetchMessages]);
 
-  const data = chatId ? messages : messagesFromResponse;
+  // Gönder butonunun aktif olup olmayacağını belirler
+  const canSend = useMemo(() => {
+    return message.trim() !== "" && !sending;
+  }, [message, sending]);
 
+  /**
+   * Yazılan mesajı API'ye gönderir (POST isteği ile).
+   */
+  const onSend = useCallback(async () => {
+    if (!token || !chatId) {
+      Alert.alert("Hata", "Giriş yapılmamış veya sohbet ID'si bulunamadı.");
+      return;
+    }
+
+    try {
+      setSending(true);
+      const idNum = Number(chatId);
+      if (!Number.isFinite(idNum) || idNum <= 0) {
+        Alert.alert("Geçersiz hst_id", "Lütfen pozitif bir sayı girin.");
+        return;
+      }
+      // Mesajı gönder
+      await sendChatMessage(token, idNum, message);
+      // Giriş alanını temizle
+      setMessage("");
+      // Mesaj gönderildikten sonra sohbet geçmişini yeniden çek
+      await fetchMessages();
+    } catch (e: any) {
+      Alert.alert("Gönderme Hatası", e?.message ?? String(e));
+    } finally {
+      setSending(false);
+    }
+  }, [token, chatId, message, fetchMessages]);
+
+  /**
+   * Tarih/saati yerel saat formatına dönüştürür (ör: "14:30")
+   */
   const formatDateTime = (dateTimeString: string) => {
     try {
       const date = new Date(dateTimeString);
@@ -84,48 +155,66 @@ export default function ChatScreen() {
     }
   };
 
-  const isEmpty = !loading && data.length === 0;
+  const isEmpty = !loading && messages.length === 0;
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <Stack.Screen options={{ title: name }} />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={{ flex: 1 }}>
+          {loading && messages.length === 0 ? (
+            <View style={styles.center}>
+              <ActivityIndicator size="large" />
+            </View>
+          ) : isEmpty ? (
+            <View style={styles.center}>
+              <Text style={styles.emptyText}>Bu sohbet için mesaj yok.</Text>
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            </View>
+          ) : (
+            <FlatList
+              data={messages}
+              keyExtractor={(item, index) => `${item.cht_datetime}-${index}`}
+              style={styles.list}
+              contentContainerStyle={styles.listContainer}
+              inverted // Mesajların aşağıdan yukarıya doğru akmasını sağlar.
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+              renderItem={({ item }) => {
+                const isDoctor = item.yazar_statu === "dr";
+                return (
+                  <View style={[styles.messageRow, isDoctor ? styles.doctorRow : styles.mfRow]}>
+                    <View style={[styles.messageBubble, isDoctor ? styles.doctorBubble : styles.mfBubble]}>
+                      <Text style={styles.authorText}>{item.yazar_tamad}</Text>
+                      <Text style={styles.messageText}>{item.cht_text}</Text>
+                      <Text style={styles.timeText}>{formatDateTime(item.cht_datetime)}</Text>
+                    </View>
+                  </View>
+                );
+              }}
+            />
+          )}
 
-      {loading && data.length === 0 ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" />
+          {/* Mesaj Giriş Alanı */}
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              value={message}
+              onChangeText={setMessage}
+              placeholder="Mesajınızı yazın..."
+              multiline
+            />
+            <Button title={sending ? "Gönderiliyor..." : "Gönder"} onPress={onSend} disabled={!canSend} />
+          </View>
         </View>
-      ) : isEmpty ? (
-        <View style={styles.center}>
-          <Text style={styles.emptyText}>Bu sohbet için mesaj yok.</Text>
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        </View>
-      ) : (
-        <FlatList
-          data={data}
-          keyExtractor={(item, index) => `${item.cht_datetime}-${index}`}
-          style={styles.list}
-          contentContainerStyle={styles.listContainer}
-          inverted
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          renderItem={({ item }) => {
-            const isDoctor = item.yazar_statu === "dr";
-            return (
-              <View style={[styles.messageRow, isDoctor ? styles.doctorRow : styles.mfRow]}>
-                <View style={[styles.messageBubble, isDoctor ? styles.doctorBubble : styles.mfBubble]}>
-                  <Text style={styles.authorText}>{item.yazar_tamad}</Text>
-                  <Text style={styles.messageText}>{item.cht_text}</Text>
-                  <Text style={styles.timeText}>{formatDateTime(item.cht_datetime)}</Text>
-                </View>
-              </View>
-            );
-          }}
-        />
-      )}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-// --- Styles ---
+// --- Stil ---
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#E5DDD5" },
   list: { flex: 1 },
@@ -134,8 +223,8 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 16, color: "#555", marginTop: 8 },
   errorText: { marginTop: 6, color: "#b00020" },
   messageRow: { flexDirection: "row", marginVertical: 4 },
-  doctorRow: { justifyContent: "flex-end" },
-  mfRow: { justifyContent: "flex-start" },
+  doctorRow: { justifyContent: "flex-end" }, // Doktor mesajları sağda
+  mfRow: { justifyContent: "flex-start" }, // Diğerleri solda
   messageBubble: {
     maxWidth: "85%",
     paddingVertical: 8,
@@ -152,4 +241,24 @@ const styles = StyleSheet.create({
   authorText: { fontWeight: "bold", marginBottom: 4, color: "#075E54" },
   messageText: { fontSize: 16, color: "#111" },
   timeText: { fontSize: 11, color: "#A0A0A0", textAlign: "right", marginTop: 5, marginLeft: 10 },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#ddd',
+    backgroundColor: '#f9f9f9'
+  },
+  input: {
+    flex: 1,
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    marginRight: 8,
+    fontSize: 16,
+  },
 });

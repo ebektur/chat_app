@@ -1,50 +1,229 @@
-# Welcome to your Expo app 👋
+# Mobil Uygulama API Dökümantasyonu
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Bu döküman, mobil uygulamanın sunucu ile iletişim kurmak için kullandığı API endpoint'lerini açıklamaktadır.
 
-## Get started
+---
 
-1. Install dependencies
+## Genel Rotalar (Public Routes)
 
-   ```bash
-   npm install
-   ```
+Bu endpoint'ler için kimlik doğrulaması (authentication) gerekmez.
 
-2. Start the app
+### 1. Kullanıcı Girişi (`/login`)
+Bir kullanıcıyı doğrular ve korumalı rotalara erişim için bir Sanctum token'ı döndürür.
 
-   ```bash
-   npx expo start
-   ```
+* **Endpoint:** `/api/login`
+* **Method:** `POST`
 
-In the output, you'll find options to open the app in a
+#### Request Body
+| Alan | Tür | Açıklama | Gerekli |
+| :--- | :--- | :--- | :--- |
+| `email` | String | Kullanıcının e-posta adresi. | Evet |
+| `password` | String | Kullanıcının şifresi. | Evet |
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
+#### Örnek İstek (cURL)
 ```bash
-npm run reset-project
+curl -X POST "[http://your-domain.com/api/login](http://your-domain.com/api/login)" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "email": "john.doe@fly.com.tr",
+        "password": "password123"
+      }'
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+#### Örnek Başarılı Yanıt (200 OK)
+```bash
+{
+  "token": "17|TOKEN",
+  "user": {
+    "id": 1,
+    "name": "John Doe",
+    "email": "john.doe@fly.com.tr",
+    "role": "doktor",
+    "expo_push_token": "ExponentPushToken[XXXXXXXXX]",
+    "created_at": "2025-09-05T18:34:53.000000Z",
+    "updated_at": "2025-09-12T13:24:00.000000Z"
+    "hst_id: null"
+  }
+}
+```
 
-## Learn more
+```bash
+{
+  "token": "18|TOKEN",
+  "user": {
+    "id": 2,
+    "name": "Jane Patient",
+    "email": "jane.patient@fly.com.tr",
+    "role": "patient",
+    "expo_push_token": "ExponentPushToken[XXXXXXXXX]",
+    "created_at": "2025-09-05T18:34:53.000000Z",
+    "updated_at": "2025-09-12T13:24:00.000000Z"
+    "hst_id: 8606"
+  }
+}
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+## Korumalı Rotalar (Protected Routes)
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Bu endpoint'lere erişim için geçerli bir **Sanctum token** zorunludur.  
 
-## Join the community
+### 2) Giriş Yapmış Kullanıcıyı Al (`/me`)
 
-Join our community of developers creating universal apps.
+O an giriş yapmış olan kullanıcının detaylarını getirir.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- **Endpoint:** `/api/me`  
+- **Method:** `GET`  
+- **Authentication:** Gerekli
+
+#### Örnek İstek (cURL)
+```bash
+curl -X GET "http://your-domain.com/api/me" \
+  -H "Authorization: Bearer YOUR_SANCTUM_TOKEN"
+```
+#### Örnek Başarılı Yanıt (200 OK)
+
+```bash
+{
+  "id": 1,
+  "name": "John Doe",
+  "email": "john.doe@fly.com.tr",
+  "role": "doktor",
+  "expo_push_token": "ExponentPushToken[XXXXXXXXXXXX]",
+  "created_at": "2025-09-05T18:34:53.000000Z",
+  "updated_at": "2025-09-12T13:24:00.000000Z",
+  "hst_id" : null
+}
+```
+
+### Cevap Bekleyen Konuşmaları Al (/cevap-bekleyenler)
+Yanıt bekleyen konuşmaların bir listesini getirir.
+
+Endpoint: /api/cevap-bekleyenler
+Method: GET
+Authentication: Gerekli.
+
+#### Örnek İstek (cURL)
+```bash
+curl -X GET "http://your-domain.com/api/cevap-bekleyenler" \
+  -H "Authorization: Bearer YOUR_SANCTUM_TOKEN"
+```
+
+#### Örnek Başarılı Yanıt (200 OK)
+```bash
+    "status": "success",
+    "data": [
+        {
+            "hst_id": 8401,
+            "patient_name": "Test Patient Jane",
+            "last_message_text": "This is my first message...",
+            "last_message_time": "2025-10-13 15:50:13",
+            "is_unread": 1
+        },
+        {
+            "hst_id": 8400,
+            "patient_name": "Frau Kamila Birke",
+            "last_message_text": "Thank you, doctor.",
+            "last_message_time": "2025-10-13 15:50:15",
+            "is_unread": 0
+        }
+    ]
+```
+
+### 4) Sohbet Mesajlarını Çek (`/chat-messages`)
+
+Belirli bir hasta konuşmasının mesaj geçmişini getirir.
+
+- **Endpoint:** `/api/chat-messages`  
+- **Method:** `POST`  
+- **Authentication:** Gerekli
+
+#### Request Body
+| Alan     | Tür     | Açıklama                   | Gerekli |
+|----------|---------|----------------------------|---------|
+| `hst_id` | Integer | Hastanın ID'si   | Evet    |
+
+#### Örnek İstek (cURL)
+```bash
+curl -X POST "http://your-domain.com/api/chat-messages" \
+  -H "Authorization: Bearer YOUR_SANCTUM_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "hst_id": 8400
+      }'
+```
+#### Örnek Başarılı Yanıt (200 OK)
+```bash
+"status": "success",
+    "data": [
+        {
+            "id": 22,
+            "hst_id": 8400,
+            "yazar_id": 2,
+            "yazar_tamad": "Staff Member",
+            "yazar_statu": "mf",
+            "cht_datetime": "2025-09-12T12:51:40.000000Z",
+            "cht_text": "Merhaba hocam, hastanın dosyasını güncelledim.",
+            "cht_audio": null,
+            "cht_audio_path": null,
+            "created_at": "2025-09-12T13:21:41.000000Z",
+            "updated_at": "2025-09-12T13:21:41.000000Z"
+        },
+        {
+            "id": 23,
+            "hst_id": 8400,
+            "yazar_id": 1,
+            "yazar_tamad": "Dr. Onur Egemen",
+            "yazar_statu": "dr",
+            "cht_datetime": "2025-09-12T12:53:40.000000Z",
+            "cht_text": "Teşekkürler. Sabahki sonuçlar sisteme düştü mü?",
+            "cht_audio": null,
+            "cht_audio_path": null,
+            "created_at": "2025-09-12T13:21:41.000000Z",
+            "updated_at": "2025-09-12T13:21:41.000000Z"
+        },
+        {
+            "id": 34,
+            "hst_id": 8400,
+            "yazar_id": 5,
+            "yazar_tamad": "Frau Kamila Birke",
+            "yazar_statu": "patient",
+            "cht_datetime": "2025-10-13T14:50:15.000000Z",
+            "cht_text": "Thank you, doctor.",
+            "cht_audio": null,
+            "cht_audio_path": null,
+            "created_at": "2025-10-13T15:50:15.000000Z",
+            "updated_at": "2025-10
+      }
+  ]
+```
+
+### Anlık Bildirim Token'ını Kaydet (`/save-push-token`)
+
+İstemcinin (client) **Expo push notification** token'ını sunucuya kaydeder.
+
+- **Endpoint:** `/api/save-push-token`  
+- **Method:** `POST`  
+- **Authentication:** Gerekli
+
+#### Request Body
+| Alan            | Tür     | Açıklama                                 | Gerekli |
+|-----------------|---------|------------------------------------------|---------|
+| `expoPushToken` | String  | İstemciden alınan Expo push token | Evet    |
+
+#### Örnek İstek (cURL)
+```bash
+curl -X POST "http://your-domain.com/api/save-push-token" \
+  -H "Authorization: Bearer YOUR_SANCTUM_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "expoPushToken": "ExponentPushToken[xxxxxxxxxx]"
+      }'
+```
+
+#### Örnek Başarılı Yanıt (200 OK)
+```bash
+{
+  "message": "Push token saved successfully."
+}
+```
+

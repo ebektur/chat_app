@@ -1,10 +1,9 @@
 import * as api from "@/lib/api";
 import { useAuth } from "@/lib/ctx";
-import { Feather } from "@expo/vector-icons"; // For icons
+import { Feather } from "@expo/vector-icons";
 import { router, Stack, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   SafeAreaView,
@@ -15,15 +14,23 @@ import {
   View,
 } from "react-native";
 
-// Define the type for items in your list
+/**
+ * `/cevap-bekleyenler` API uç noktasından alınan tek bir chat
+ * öğesinin yapısını tanımlar.
+ */
 type PendingItem = {
   hst_id: number;
-  hst_durum?: number;
-  hst_full_name?: string;
-  kayit_date?: string;
+  patient_name: string;
+  last_message_text: string;
+  last_message_time: string;
+  is_unread: number;
 };
 
-// Helper function to get initials for the avatar
+/**
+ * Avatar için tam isimden baş harfleri oluşturan yardımcı fonksiyon.
+ * @param {string} name - Hastanın tam adı.
+ * @returns {string} Büyük harflerle baş harfler (örneğin, "Ayse Yilmaz" için "AY").
+ */
 const getInitials = (name: string = "") => {
   return name
     .split(' ')
@@ -33,98 +40,92 @@ const getInitials = (name: string = "") => {
     .toUpperCase();
 };
 
+/**
+ * Uygulamanın ana ekranı, bekleyen hasta görüşmelerinin bir listesini gösterir
+ */
 export default function HomeScreen() {
+  // Kullanıcı token'ına ve çıkış fonksiyonuna erişim için kimlik doğrulama
   const { token, logout, isLoading: authLoading } = useAuth();
 
+  // API'den alınan bekleyen görüşmelerin listesini tutan state
   const [pending, setPending] = useState<PendingItem[]>([]);
+  // Liste için yükleme göstergesini yöneten state
   const [loadingPending, setLoadingPending] = useState(false);
-  const [sendingIds, setSendingIds] = useState<Set<number>>(new Set());
+  // Arama giriş alanındaki mevcut metni tutan state
   const [searchQuery, setSearchQuery] = useState("");
 
-  const isSending = (id: number) => sendingIds.has(id);
-
+  /**
+   * API'den bekleyen görüşmelerin listesini çeker
+   * Yükleme durumunu ve olası kimlik doğrulama hatalarını yönetir
+   */
   const loadPending = useCallback(async () => {
-    // ... (This function remains the same)
-    if (authLoading) return;
-    if (!token) {
-      router.replace("/login");
-      return;
-    }
+    if (authLoading || !token) return;
+    
     try {
       setLoadingPending(true);
-      const data = await api.getPending(token);
-      const list: PendingItem[] = Array.isArray(data) ? data : data?.data ?? [];
+      const response = await api.getPending(token);
+      const list: PendingItem[] = response?.data ?? [];
       setPending(list);
     } catch (e: any) {
       const msg = e?.message ?? String(e);
+      // Oturum süresi dolmuşsa, kullanıcıyı çıkış yapmaya yönlendir.
       if (/401|403/.test(msg)) {
-        Alert.alert("Session expired", "Please sign in again.");
+        Alert.alert("Oturum Süresi Doldu", "Lütfen tekrar giriş yapın.");
         await logout();
         router.replace("/login");
-        return;
+      } else {
+        Alert.alert("Yükleme Hatası", msg);
       }
-      Alert.alert("Load error", msg);
     } finally {
       setLoadingPending(false);
     }
   }, [token, authLoading, logout]);
 
+  /**
+   * Seçilen bir hasta için sohbet ekranına yönlendirir
+   * @param {PendingItem} item - Seçilen görüşme 
+   */
   const openChat = useCallback(
-    // ... (This function remains the same)
-    async (item: PendingItem) => {
+    (item: PendingItem) => {
       if (!token) {
         router.replace("/login");
         return;
       }
-      const { hst_id, hst_full_name } = item;
-      try {
-        setSendingIds(prev => new Set(prev).add(hst_id));
-        const res = await api.sendChatMessage(token, hst_id);
-
-        router.push({
-          pathname: "/chat",
-          params: {
-            response: JSON.stringify(res),
-            name: hst_full_name ?? "Chat Result",
-          },
-        });
-      } catch (e: any) {
-        const msg = e?.message ?? String(e);
-        if (/401|403/.test(msg)) {
-          Alert.alert("Session expired", "Please sign in again.");
-          await logout();
-          router.replace("/login");
-          return;
-        }
-        Alert.alert("Send error", msg);
-      } finally {
-        setSendingIds(prev => {
-          const next = new Set(prev);
-          next.delete(hst_id);
-          return next;
-        });
-      }
+      // Hastanın ID'sini ve adını parametre olarak geçirerek sohbet ekranına yönlendir
+      router.push({
+        pathname: "/chat",
+        params: {
+          chatId: String(item.hst_id),
+          name: item.patient_name,
+        },
+      });
     },
-    [token, logout]
+    [token, router]
   );
 
-  useEffect(() => { loadPending(); }, [loadPending]);
-  useFocusEffect(useCallback(() => { loadPending(); return () => {}; }, [loadPending]));
+  // Görüşme listesinin her zaman güncel olmasını sağlar
+  useFocusEffect(useCallback(() => { loadPending(); }, [loadPending]));
 
-  // Filter conversations based on the search query
+  /**
+   * Chat araması yapmak için.
+   */
   const filteredPending = useMemo(() => {
     if (!searchQuery) return pending;
     return pending.filter(item =>
-      item.hst_full_name?.toLowerCase().includes(searchQuery.toLowerCase())
+      item.patient_name?.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [pending, searchQuery]);
 
-  // Format date for display (changed to en-GB locale)
+  /**
+   * Tarihi "15:50" formatına dönüştürür.
+   * @param {string} dateString 
+   * @returns {string} 
+   */
   const formatDate = (dateString?: string) => {
     if (!dateString) return "";
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
+      return date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
     } catch {
       return "";
     }
@@ -135,27 +136,27 @@ export default function HomeScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.container}>
-        {/* --- Custom Header --- */}
+        {/* --- Özel Başlık --- */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Messages</Text>
+          <Text style={styles.headerTitle}>Mesajlar</Text>
           <TouchableOpacity onPress={logout} style={styles.logoutButton}>
             <Feather name="log-out" size={24} color="#007AFF" />
           </TouchableOpacity>
         </View>
 
-        {/* --- Search Bar --- */}
+        {/* --- Arama Çubuğu --- */}
         <View style={styles.searchContainer}>
           <Feather name="search" size={20} color="#8E8E93" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search by patient name"
+            placeholder="Hasta adına göre ara"
             placeholderTextColor="#8E8E93"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
 
-        {/* --- Chat List --- */}
+        {/* --- Sohbet Listesi --- */}
         <FlatList
           data={filteredPending}
           keyExtractor={(item) => String(item.hst_id)}
@@ -163,43 +164,37 @@ export default function HomeScreen() {
           onRefresh={loadPending}
           refreshing={loadingPending}
           ListEmptyComponent={
-            !loadingPending ? <Text style={styles.emptyText}>No conversations found.</Text> : null
+            !loadingPending ? <Text style={styles.emptyText}>Görüşme bulunamadı.</Text> : null
           }
-          renderItem={({ item }) => {
-            const sending = isSending(item.hst_id);
-            return (
-              <TouchableOpacity style={styles.chatItem} onPress={() => openChat(item)} disabled={sending}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{getInitials(item.hst_full_name)}</Text>
-                </View>
-                <View style={styles.chatContent}>
-                  <Text style={styles.chatName} numberOfLines={1}>{item.hst_full_name}</Text>
-                  <Text style={styles.lastMessage} numberOfLines={1}>
-                    ID: {item.hst_id} • Status: {item.hst_durum ?? "N/A"}
-                  </Text>
-                </View>
-                <View style={styles.chatMeta}>
-                  {sending ? (
-                    <ActivityIndicator color="#007AFF" />
-                  ) : (
-                    <Text style={styles.timestamp}>{formatDate(item.kayit_date)}</Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-            );
-          }}
+          renderItem={({ item }) => (
+            <TouchableOpacity style={styles.chatItem} onPress={() => openChat(item)}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{getInitials(item.patient_name)}</Text>
+              </View>
+              <View style={styles.chatContent}>
+                <Text style={styles.chatName} numberOfLines={1}>{item.patient_name}</Text>
+                {/* Bağlam için son mesaj metnini göster. */}
+                <Text style={styles.lastMessage} numberOfLines={1}>
+                  {item.last_message_text}
+                </Text>
+              </View>
+              <View style={styles.chatMeta}>
+                <Text style={styles.timestamp}>{formatDate(item.last_message_time)}</Text>
+              </View>
+            </TouchableOpacity>
+          )}
         />
       </View>
     </SafeAreaView>
   );
 }
 
-// --- Stylesheet ---
+// --- Stil ---
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#fff" },
   container: {
     flex: 1,
-    paddingTop: 16, // Added padding to the top
+    paddingTop: 16,
   },
   header: {
     flexDirection: 'row',

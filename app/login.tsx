@@ -1,99 +1,68 @@
-//'app/login.tsx'
-import {
-  registerForPushNotificationsAsync,
-  sendPushTokenToServer,
-} from "@/lib/api";
-import { Redirect } from "expo-router";
-import { useState } from "react";
-import {
-  ActivityIndicator,
-  Button,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-import { useAuth } from "../lib/ctx";
+import api from "@/lib/api";
+import { secure } from "@/lib/secure";
+import { useRouter } from "expo-router";
+import { useCallback, useState } from "react";
+import { ActivityIndicator, Alert, Button, StyleSheet, Text, TextInput, View } from "react-native";
 
+const { saveToken } = secure;
+
+/**
+ * Kullanıcıların uygulamaya giriş yapmasını sağlayan ekran.
+ */
 const LoginScreen = () => {
+  // State'ler kullanıcı adı, şifre ve yükleme durumunu yönetir.
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  // Destructure all necessary values from the auth context
-  const { login, isLoading, token } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   /**
-   * Handles the login button press.
-   * Clears previous errors, attempts to log in, gets the push token,
-   * and sends the push token to the server.
-   * Sets an error message on failure.
+   * Kullanıcı adı ve şifre ile API'ye giriş isteği gönderir.
+   * Başarılı olursa, token'ı kaydeder ve ana ekrana yönlendirir.
    */
-  const handleLogin = async () => {
-    if (username && password) {
-      setError(null);
-      try {
-        // 1) Login and get the bearer token
-        const bearer = await login(username, password);
-
-        // 2) Get Expo push token
-        const expoToken = await registerForPushNotificationsAsync();
-
-        // 3) Send it to backend
-        if (expoToken) {
-          await sendPushTokenToServer(bearer, expoToken);
-          console.log("✅ Push token stored in backend");
-        }
-      } catch (e: any) {
-        console.error("Login failed:", e);
-        setError(e.message || "Login failed.");
-      }
+  const handleLogin = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      console.log("Giriş yapma deneniyor...");
+      const token = await api.login(username, password);
+      console.log("Giriş başarılı, token:", token);
+      await saveToken(token);
+      router.replace("/"); // Ana sayfaya yönlendir
+    } catch (e: any) {
+      console.error("Giriş başarısız:", e);
+      Alert.alert("Giriş Başarısız", e.message || "Geçersiz kimlik bilgileri.");
+    } finally {
+      setIsLoading(false);
+      console.log("Giriş işlemi tamamlandı, isLoading:", isLoading);
     }
-  };
+  }, [username, password, router]);
 
-  // While the token is being loaded from storage for the first time, show a loading indicator.
-  if (isLoading && !token) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text>Loading session...</Text>
-      </View>
-    );
-  }
-
-  // If a token exists, the user is logged in. Redirect to home screen.
-  if (token) {
-    return <Redirect href="/(tabs)" />;
-  }
-
-  // Otherwise, show the login form to the user.
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome</Text>
+      <Text style={styles.title}>Hoş Geldiniz</Text>
       <TextInput
         style={styles.input}
-        placeholder="Username"
+        placeholder="Kullanıcı Adı"
         value={username}
         onChangeText={setUsername}
         autoCapitalize="none"
-        // Clear error when user starts typing
-        onFocus={() => setError(null)}
       />
       <TextInput
         style={styles.input}
-        placeholder="Password"
+        placeholder="Şifre"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
-        onFocus={() => setError(null)}
       />
-      {/* Display error message if one exists */}
-      {error && <Text style={styles.errorText}>{error}</Text>}
       <Button
-        title={isLoading ? "Logging in..." : "Log In"}
+        title={isLoading ? "Giriş Yapılıyor..." : "Giriş Yap"}
         onPress={handleLogin}
-        disabled={isLoading || !username || !password}
+        disabled={isLoading}
       />
+
+      {isLoading && (
+        <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 16 }} />
+      )}
     </View>
   );
 };
